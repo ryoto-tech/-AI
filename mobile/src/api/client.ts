@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_BASE = (Constants.expoConfig?.extra?.API_BASE_URL || Constants.manifest?.extra?.API_BASE_URL) as string;
 const AUTH_TOKEN = (Constants.expoConfig?.extra?.AUTH_TOKEN || Constants.manifest?.extra?.AUTH_TOKEN) as string;
@@ -15,9 +16,16 @@ async function request(path: string, options: RequestInit = {}) {
 }
 
 export async function ensureChild(): Promise<string> {
-  // In a real app we use AsyncStorage; to keep core simple, ask server to create once per launch
+  // 端末に child_id を保存して再利用（初回のみサーバーで作成）
+  const KEY = 'child_id';
+  try {
+    const cached = await AsyncStorage.getItem(KEY);
+    if (cached) return cached;
+  } catch {}
   const r = await request('/v1/children', { method: 'POST', body: JSON.stringify({ name: 'こども', age: 5 }) });
-  return r.child_id as string;
+  const id = r.child_id as string;
+  try { await AsyncStorage.setItem(KEY, id); } catch {}
+  return id;
 }
 
 export async function getUsageToday(child_id: string) {
