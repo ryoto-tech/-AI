@@ -15,7 +15,7 @@ const AskSchema = z.object({
 import { transcribeAudioBase64 } from '../services/stt';
 import { generateAnswerForChild } from '../services/ai';
 import { synthesizeToUrl } from '../services/tts';
-import { addConversation } from '../store/conversations';
+import { prisma } from '../store/db';
 import { classify } from '../utils/classifier';
 
 router.post('/ask', async (req, res) => {
@@ -25,7 +25,7 @@ router.post('/ask', async (req, res) => {
   const { child_id, text, audio_base64 } = parsed.data as any;
 
   // quota check
-  const quota = checkAndInc(child_id);
+  const quota = await checkAndInc(child_id);
   if (!quota.allowed) return res.status(429).json({ error: 'daily limit reached', quota: { used: quota.used, limit: 3 } });
 
   // STT (mock or GCP in future)
@@ -38,16 +38,14 @@ router.post('/ask', async (req, res) => {
   // TTS synth
   const tts_audio_url = await synthesizeToUrl(ai.answer_text);
 
-  // persist in-memory
-  addConversation({
-    conversation_id: crypto.randomUUID?.() || Math.random().toString(36).slice(2),
+  // persist DB
+  await prisma.conversation.create({ data: {
     child_id,
     question_text: userText,
     answer_text: ai.answer_text,
-    audio_file_urls: { output: tts_audio_url },
+    audio_output_url: tts_audio_url,
     category,
-    timestamp: new Date().toISOString(),
-  });
+  }});
 
   res.json({ answer_text: ai.answer_text, category, related_question: ai.related_question, tts_audio_url, quota: { used: quota.used, limit: 3 } });
 });
