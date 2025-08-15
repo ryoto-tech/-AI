@@ -12,37 +12,42 @@ const AskSchema = z.object({
   audio_base64: z.string().optional()
 }).refine((v) => v.text || v.audio_base64, { message: 'text or audio required' });
 
-// naive category classifier
-function classify(text: string): '動物'|'自然'|'科学'|'日常'|'その他' {
-  const t = text;
-  if (/(いぬ|ねこ|くま|どうぶつ|動物)/i.test(t)) return '動物';
-  if (/(そら|やま|はな|自然|天気|空|山|海)/i.test(t)) return '自然';
-  if (/(なぜ|どうして|ひかり|でんき|科学|星|宇宙)/i.test(t)) return '科学';
-  if (/(ごはん|おふろ|あそぶ|日常|ようちえん)/i.test(t)) return '日常';
-  return 'その他';
-}
+import { transcribeAudioBase64 } from '../services/stt';
+import { generateAnswerForChild } from '../services/ai';
+import { synthesizeToUrl } from '../services/tts';
+import { addConversation } from '../store/conversations';
+import { classify } from '../utils/classifier';
 
 router.post('/ask', async (req, res) => {
   const parsed = AskSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
 
-  const { child_id, text } = parsed.data;
+  const { child_id, text, audio_base64 } = parsed.data as any;
 
   // quota check
   const quota = checkAndInc(child_id);
   if (!quota.allowed) return res.status(429).json({ error: 'daily limit reached', quota: { used: quota.used, limit: 3 } });
 
-  // STT placeholder: if audio provided, pretend it's "なぜ空は青いの？"
-  const userText = text || 'なぜ空は青いの？';
+  // STT (mock or GCP in future)
+  const userText = text || await transcribeAudioBase64(audio_base64!);
 
-  // AI generation placeholder per spec
-  const answer_text = '空には光があたって、青い色がいちばん見えやすいからだよ。';
-  const category = classify(userText);
-  const related_question = 'ほかの色はどう見えるのかも知りたい？';
+  // AI generation
+  const ai = await generateAnswerForChild(userText);
+  const category = ai.category || classify(userText);
 
-  // TTS placeholder: return a dummy URL
-  const tts_audio_url = `https://example.com/audio/${encodeURIComponent(answer_text)}.mp3`;
+  // TTS synth
+  const tts_audio_url = await synthesizeToUrl(ai.answer_text);
 
-  // In MVP skeleton, we just echo and do not persist.
-  res.json({ answer_text, category, related_question, tts_audio_url, quota: { used: quota.used, limit: 3 } });
+  // persist in-memory
+  addConversation({
+    conversation_id: crypto.randomUUID?.() || Math.random().toString(36).slice(2),
+    child_id,
+    question_text: userText,
+    answer_text: ai.answer_text,
+    audio_file_urls: { output: tts_audio_url },
+    category,
+    timestamp: new Date().toISOString(),
+  });
+
+  res.json({ answer_text: ai.answer_text, category, related_question: ai.related_question, tts_audio_url, quota: { used: quota.used, limit: 3 } });
 });

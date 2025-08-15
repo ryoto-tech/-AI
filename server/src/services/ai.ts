@@ -1,0 +1,59 @@
+export type AIProvider = 'mock' | 'openai';
+
+export type AIResult = {
+  answer_text: string;
+  category: '動物'|'自然'|'科学'|'日常'|'その他';
+  related_question: string;
+};
+
+import { classify } from '../utils/classifier';
+import { safetyGuard } from './safety';
+
+export async function generateAnswerForChild(inputText: string, age: number = 4, provider: AIProvider = (process.env.AI_PROVIDER as AIProvider) || 'mock'): Promise<AIResult> {
+  const safety = safetyGuard(inputText);
+  if (!safety.allowed) {
+    return {
+      answer_text: safety.message,
+      category: 'その他',
+      related_question: 'パパやママといっしょに、たのしいお話をさがしてみようか？'
+    };
+  }
+
+  if (provider === 'mock') {
+    const answer_text = '空には光があたって、青い色がいちばん見えやすいからだよ。';
+    return { answer_text, category: classify(inputText), related_question: 'ほかの色はどう見えるのかも知りたい？' };
+  }
+
+  if (provider === 'openai') {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) throw new Error('OPENAI_API_KEY required');
+    const sys = `あなたは「なぜなぜAI」の優しいくまさんです。3-6歳の子どもの質問に、次のガイドラインで答えてください:\n1) やさしいことば 2) 前向き 3) 危険回避 4) 1-2文 5) 必要なら「パパやママに聞いてね」 6) 興味を広げる関連質問\n回答形式:\n- 本文：子ども向けの回答\n- カテゴリ：[動物/自然/科学/日常/その他]\n- 関連質問：「○○についても知りたい？」`;
+    const user = `質問: ${inputText}\n年齢: ${age}`;
+    const resp = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: sys },
+          { role: 'user', content: user }
+        ],
+        temperature: 0.6,
+        max_tokens: 120
+      })
+    });
+    if (!resp.ok) throw new Error(`OpenAI API error: ${resp.status}`);
+    const data = await resp.json();
+    const content: string = data.choices?.[0]?.message?.content || '';
+    // Very simple parse: split lines
+    const lines = content.split(/\n+/).map((l: string) => l.trim()).filter(Boolean);
+    const answer = lines.find(l => !l.startsWith('-')) || lines[0] || '';
+    const categoryLine = lines.find(l => /カテゴリ/.test(l)) || '';
+    const relatedLine = lines.find(l => /関連質問/.test(l)) || '';
+    const category = (categoryLine.match(/\[(.*?)\]/)?.[1] as any) || classify(inputText);
+    const related_question = relatedLine.replace(/^[-\s]*関連質問[:：]?\s*/, '') || 'ほかの色はどう見えるのかも知りたい？';
+    return { answer_text: answer, category, related_question };
+  }
+
+  throw new Error(`Unknown AI provider: ${provider}`);
+}
