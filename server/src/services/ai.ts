@@ -9,7 +9,9 @@ export type AIResult = {
 import { classify } from '../utils/classifier';
 import { safetyGuard } from './safety';
 
-export async function generateAnswerForChild(inputText: string, age: number = 4, provider: AIProvider = (process.env.AI_PROVIDER as AIProvider) || 'mock'): Promise<AIResult> {
+import { config } from '../utils/config';
+
+export async function generateAnswerForChild(inputText: string, age: number = 4, provider: AIProvider = config.aiProvider() as AIProvider): Promise<AIResult> {
   const safety = safetyGuard(inputText);
   if (!safety.allowed) {
     return {
@@ -25,7 +27,7 @@ export async function generateAnswerForChild(inputText: string, age: number = 4,
   }
 
   if (provider === 'openai') {
-    const apiKey = process.env.OPENAI_API_KEY;
+    const apiKey = config.openaiKey();
     if (!apiKey) throw new Error('OPENAI_API_KEY required');
     const sys = `あなたは「なぜなぜAI」の優しいくまさんです。3-6歳の子どもの質問に、次のガイドラインで答えてください:\n1) やさしいことば 2) 前向き 3) 危険回避 4) 1-2文 5) 必要なら「パパやママに聞いてね」 6) 興味を広げる関連質問\n回答形式:\n- 本文：子ども向けの回答\n- カテゴリ：[動物/自然/科学/日常/その他]\n- 関連質問：「○○についても知りたい？」`;
     const user = `質問: ${inputText}\n年齢: ${age}`;
@@ -33,7 +35,7 @@ export async function generateAnswerForChild(inputText: string, age: number = 4,
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        model: config.openaiModel(),
         messages: [
           { role: 'system', content: sys },
           { role: 'user', content: user }

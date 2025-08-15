@@ -1,6 +1,8 @@
 export type STTProvider = 'mock' | 'gcp';
 
-export async function transcribeAudioBase64(audio_base64: string, provider: STTProvider = (process.env.STT_PROVIDER as STTProvider) || 'mock'): Promise<string> {
+import { config } from '../utils/config';
+
+export async function transcribeAudioBase64(audio_base64: string, provider: STTProvider = config.sttProvider() as STTProvider): Promise<string> {
   if (!audio_base64) throw new Error('audio_base64 required');
   switch (provider) {
     case 'mock':

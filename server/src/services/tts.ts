@@ -3,7 +3,9 @@ import { randomUUID } from 'node:crypto';
 import path from 'node:path';
 import fs from 'node:fs';
 
-export async function synthesizeToUrl(text: string, provider: TTSProvider = (process.env.TTS_PROVIDER as TTSProvider) || 'mock'): Promise<string> {
+import { config } from '../utils/config';
+
+export async function synthesizeToUrl(text: string, provider: TTSProvider = config.ttsProvider() as TTSProvider): Promise<string> {
   switch (provider) {
     case 'mock':
       // Write a tiny placeholder file so the URL exists
