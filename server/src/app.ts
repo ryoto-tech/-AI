@@ -55,10 +55,10 @@ export function createApp() {
       .muted{color:#666; font-size:14px}
       .card{border:1px solid #eee; border-radius:12px; padding:16px; margin:12px 0}
       .row{display:flex; gap:8px; align-items:center}
-      .btn{background:var(--accent); color:#fff; border:none; border-radius:999px; padding:10px 16px; font-size:16px; cursor:pointer}
+      .btn{background:var(--accent); color:#fff; border:none; border-radius:999px; padding:12px 18px; font-size:18px; cursor:pointer}
       .btn:disabled{opacity:.5; cursor:not-allowed}
-      .text{flex:1; padding:10px 12px; font-size:16px; border:1px solid #ddd; border-radius:12px}
-      .chip{border:1px solid #ddd; border-radius:16px; padding:6px 10px; cursor:pointer}
+      .text{flex:1; padding:12px 14px; font-size:18px; border:1px solid #ddd; border-radius:12px}
+      .chip{border:1px solid #ddd; border-radius:16px; padding:8px 12px; cursor:pointer}
       .chip:hover{background:#fafafa}
       .bubbles{display:flex; flex-direction:column; gap:8px; margin-top:8px}
       .me,.ai{max-width:90%; padding:10px 12px; border-radius:12px}
@@ -66,6 +66,7 @@ export function createApp() {
       .ai{align-self:flex-start; background:#f9f9f9}
       .row-center{display:flex; align-items:center; gap:8px}
       .muted-small{font-size:12px; color:#666}
+      .mascot{font-size:72px; text-align:center; filter: drop-shadow(0 2px 2px rgba(0,0,0,.1)); transition: transform .2s ease}
       a{color:#0070f3; text-decoration:none}
       a:hover{text-decoration:underline}
     </style>
@@ -75,12 +76,13 @@ export function createApp() {
     <p class="muted">これはプロトタイプのデモです。個人情報は入力しないでください。1日に質問できる回数は3回までです。</p>
 
     <div class="card">
+      <div class="mascot" id="bear">🐻</div>
       <div class="row" style="justify-content:space-between">
         <div class="muted">きょう きける かず: <span id="quota">-</span></div>
         <button id="reset" class="chip" title="デモをリセット">リセット</button>
       </div>
       <div style="margin-top:8px" class="row">
-        <input id="q" class="text" placeholder="なぜ空は青いの？" />
+        <input id="q" class="text" placeholder="なぜ空は青いの？" aria-label="しつもん" />
         <button id="ask" class="btn">質問する</button>
       </div>
       <div class="row-center muted-small" style="margin-top:6px">
@@ -113,6 +115,7 @@ export function createApp() {
         if(!res.ok){ throw new Error('HTTP '+res.status+': '+await res.text().catch(()=>'')); }
         return res.json();
       }
+      function setBusy(b){ const ask=$('#ask'), rec=$('#rec'), bear=$('#bear'); ask.disabled=b; rec.disabled=b; bear.style.transform = b? 'scale(1.07)':'scale(1)'; }
       async function ensureChild(){
         let id = localStorage.getItem('child_id');
         if(id) return id;
@@ -121,7 +124,11 @@ export function createApp() {
       }
       async function refreshQuota(child){
         const r = await api('/v1/usage/today?child_id='+encodeURIComponent(child));
-        $('#quota').textContent = Math.max(0, (r.limit||3)-(r.question_count||0));
+        const remain = Math.max(0, (r.limit||3)-(r.question_count||0));
+        $('#quota').textContent = remain;
+        const ask=$('#ask'), rec=$('#rec');
+        if(remain<=0){ ask.disabled = true; rec.disabled = true; msg('今日はここまでです。あした またためしてみてね。'); }
+        else { ask.disabled = false; rec.disabled = false; if($('#msg').textContent.includes('ここまで')) msg(''); }
       }
       async function refreshHistory(child){
         const r = await api('/v1/history?child_id='+encodeURIComponent(child)+'&limit=3&offset=0');
@@ -168,24 +175,24 @@ export function createApp() {
           };
           mediaRecorder.start();
           $('#rec').textContent = '■ とめる';
-          $('#recStat').textContent = '録音中…';
+          $('#recStat').textContent = '録音中…'; setBusy(true);
         }catch(err){ alert('マイクの許可が必要です'); }
       }
-      function stopRec(){ if(mediaRecorder && mediaRecorder.state!=='inactive'){ mediaRecorder.stop(); } if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); } $('#rec').textContent='🎤 録音'; $('#recStat').textContent='（テキストでもOK）'; }
+      function stopRec(){ if(mediaRecorder && mediaRecorder.state!=='inactive'){ mediaRecorder.stop(); } if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); } $('#rec').textContent='🎤 録音'; $('#recStat').textContent='（テキストでもOK）'; setBusy(false); }
 
 
       $('#ask').addEventListener('click', async ()=>{
         const child = localStorage.getItem('child_id'); if(!child){ return alert('先にリセットして作成してください'); }
         const text = ($('#q').value||'').trim() || 'なぜ空は青いの？';
-        msg(''); addBubble('me', text); $('#q').value='';
+        msg(''); addBubble('me', text); $('#q').value=''; setBusy(true);
         try{
           const r = await api('/v1/conversations/ask', { method:'POST', body: JSON.stringify({ child_id: child, text, tts:{ volume: 1.0, rate: 1.0 } }) });
           addBubble('ai', r.answer_text);
           await refreshQuota(child); await refreshHistory(child);
         }catch(e){
-          if((e.message||'').includes('429')){ msg('今日はここまでです。あした またためしてみてね。'); }
+          if((e.message||'').includes('429')){ msg('今日はここまでです。あした またためしてみてね。'); $('#ask').disabled=true; $('#rec').disabled=true; }
           else { msg('送信エラー: '+e.message); }
-        }
+        } finally { setBusy(false); }
       });
 
       $$('.chip').forEach(el=> el.addEventListener('click', ()=>{ $('#q').value = el.getAttribute('data-q') || ''; }));
