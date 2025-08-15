@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
+import { randomUUID } from 'node:crypto';
 
 export const router = Router();
 
@@ -14,7 +15,7 @@ const children: any[] = [];
 router.post('/', (req, res) => {
   const parsed = CreateChildSchema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: parsed.error.flatten() });
-  const child = { child_id: (globalThis as any).crypto?.randomUUID?.() || require('crypto').randomUUID(), created_at: new Date().toISOString(), settings: {}, ...parsed.data };
+  const child = { child_id: randomUUID(), created_at: new Date().toISOString(), settings: {}, ...parsed.data };
   children.push(child);
   res.json(child);
 });
