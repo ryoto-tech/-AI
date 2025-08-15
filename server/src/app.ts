@@ -47,38 +47,44 @@ export function createApp() {
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>デモ | なぜなぜAI</title>
+    <title>なぜなぜAI デモ</title>
     <style>
-      :root{ --accent:#ff8c00 }
-      body{font-family:system-ui, -apple-system, Segoe UI, Roboto, Noto Sans JP, sans-serif; padding:16px; background:#fff}
+      :root{ --accent:#ff8c00; --bg:#ffffff; --fg:#000000; --muted:#666; --card:#ffffff; --border:#eee }
+      [data-theme="dark"]{ --bg:#0f1115; --fg:#eaeaea; --muted:#99a0aa; --card:#151923; --border:#232a36 }
+      @media (prefers-color-scheme: dark){ :root{ --bg:#0f1115; --fg:#eaeaea; --muted:#99a0aa; --card:#151923; --border:#232a36 } }
+      body{font-family:system-ui, -apple-system, Segoe UI, Roboto, Noto Sans JP, sans-serif; padding:16px; background:var(--bg); color:var(--fg)}
       h1{margin:0 0 8px 0}
-      .muted{color:#666; font-size:14px}
-      .card{border:1px solid #eee; border-radius:12px; padding:16px; margin:12px 0}
+      .muted{color:var(--muted); font-size:14px}
+      .card{border:1px solid var(--border); background:var(--card); border-radius:12px; padding:16px; margin:12px 0}
       .row{display:flex; gap:8px; align-items:center}
       .btn{background:var(--accent); color:#fff; border:none; border-radius:999px; padding:12px 18px; font-size:18px; cursor:pointer}
       .btn:disabled{opacity:.5; cursor:not-allowed}
-      .text{flex:1; padding:12px 14px; font-size:18px; border:1px solid #ddd; border-radius:12px}
-      .chip{border:1px solid #ddd; border-radius:16px; padding:8px 12px; cursor:pointer}
-      .chip:hover{background:#fafafa}
+      .text{flex:1; padding:12px 14px; font-size:18px; border:1px solid var(--border); border-radius:12px; background:transparent; color:var(--fg)}
+      .chip{border:1px solid var(--border); border-radius:16px; padding:8px 12px; cursor:pointer; background:transparent; color:var(--fg)}
+      .chip:hover{background:rgba(0,0,0,.03)}
+      [data-theme="dark"] .chip:hover{ background:rgba(255,255,255,.06) }
       .bubbles{display:flex; flex-direction:column; gap:8px; margin-top:8px}
       .me,.ai{max-width:90%; padding:10px 12px; border-radius:12px}
-      .me{align-self:flex-end; background:#f0f7ff}
-      .ai{align-self:flex-start; background:#f9f9f9}
+      .me{align-self:flex-end; background:rgba(0,122,255,.12)}
+      .ai{align-self:flex-start; background:rgba(255,255,255,.06)}
       .row-center{display:flex; align-items:center; gap:8px}
-      .muted-small{font-size:12px; color:#666}
+      .muted-small{font-size:12px; color:var(--muted)}
       .mascot{font-size:72px; text-align:center; filter: drop-shadow(0 2px 2px rgba(0,0,0,.1)); transition: transform .2s ease}
-      a{color:#0070f3; text-decoration:none}
+      a{color:#4ea3ff; text-decoration:none}
       a:hover{text-decoration:underline}
     </style>
   </head>
   <body>
-    <h1>デモ</h1>
+    <div class="row" style="justify-content:space-between; align-items:center">
+      <h1 style="margin:0">なぜなぜAI デモ</h1>
+      <button id="theme" class="chip" title="テーマ切り替え">🌓 テーマ</button>
+    </div>
     <p class="muted">これはプロトタイプのデモです。個人情報は入力しないでください。1日に質問できる回数は3回までです。</p>
 
     <div class="card">
       <div class="mascot" id="bear">🐻</div>
       <div class="row" style="justify-content:space-between">
-        <div class="muted">きょう きける かず: <span id="quota">-</span></div>
+        <div class="muted">きょう きける かず: <span id="quota">-</span>／リセット時刻: <span id="resetAt">-</span></div>
         <button id="reset" class="chip" title="デモをリセット">リセット</button>
       </div>
       <div style="margin-top:8px" class="row">
@@ -126,6 +132,7 @@ export function createApp() {
         const r = await api('/v1/usage/today?child_id='+encodeURIComponent(child));
         const remain = Math.max(0, (r.limit||3)-(r.question_count||0));
         $('#quota').textContent = remain;
+        try{ const d = new Date(r.resets_at); $('#resetAt').textContent = d.toLocaleString(); }catch{ $('#resetAt').textContent = '-'; }
         const ask=$('#ask'), rec=$('#rec');
         if(remain<=0){ ask.disabled = true; rec.disabled = true; msg('今日はここまでです。あした またためしてみてね。'); }
         else { ask.disabled = false; rec.disabled = false; if($('#msg').textContent.includes('ここまで')) msg(''); }
@@ -198,6 +205,16 @@ export function createApp() {
       $$('.chip').forEach(el=> el.addEventListener('click', ()=>{ $('#q').value = el.getAttribute('data-q') || ''; }));
       $('#reset').addEventListener('click', ()=>{ localStorage.removeItem('child_id'); location.reload(); });
       $('#rec').addEventListener('click', ()=>{ if($('#rec').textContent.includes('録音')) startRec(); else stopRec(); });
+      // theme toggle
+      (function(){
+        const pref = localStorage.getItem('theme');
+        if(pref){ document.documentElement.setAttribute('data-theme', pref); }
+        $('#theme').addEventListener('click', ()=>{
+          const cur = document.documentElement.getAttribute('data-theme')==='dark' ? 'light' : 'dark';
+          document.documentElement.setAttribute('data-theme', cur);
+          localStorage.setItem('theme', cur);
+        });
+      })();
 
       // auto init
       init();
