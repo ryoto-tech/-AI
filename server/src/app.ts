@@ -64,6 +64,8 @@ export function createApp() {
       .me,.ai{max-width:90%; padding:10px 12px; border-radius:12px}
       .me{align-self:flex-end; background:#f0f7ff}
       .ai{align-self:flex-start; background:#f9f9f9}
+      .row-center{display:flex; align-items:center; gap:8px}
+      .muted-small{font-size:12px; color:#666}
       a{color:#0070f3; text-decoration:none}
       a:hover{text-decoration:underline}
     </style>
@@ -80,6 +82,10 @@ export function createApp() {
       <div style="margin-top:8px" class="row">
         <input id="q" class="text" placeholder="なぜ空は青いの？" />
         <button id="ask" class="btn">質問する</button>
+      </div>
+      <div class="row-center muted-small" style="margin-top:6px">
+        <button id="rec" class="chip" title="録音">🎤 録音</button>
+        <span id="recStat">（テキストでもOK）</span>
       </div>
       <div style="margin-top:8px; display:flex; gap:8px; flex-wrap:wrap">
         <span class="chip" data-q="なぜ空は青いの？">なぜ空は青いの？</span>
@@ -135,6 +141,39 @@ export function createApp() {
         }
       }
 
+      // simple WebAudio recorder (base64 wav) for demo
+      let mediaStream, mediaRecorder, chunks=[];
+      async function startRec(){
+        if(!navigator.mediaDevices){ alert('録音に対応していないブラウザです'); return; }
+        try{
+          mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          chunks = [];
+          mediaRecorder = new MediaRecorder(mediaStream);
+          mediaRecorder.ondataavailable = (e)=>{ if(e.data.size>0) chunks.push(e.data); };
+          mediaRecorder.onstop = async ()=>{
+            try{
+              const blob = new Blob(chunks, { type: 'audio/webm' });
+              const buf = await blob.arrayBuffer();
+              const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
+              // send audio to API
+              const child = localStorage.getItem('child_id'); if(!child){ return alert('先にリセットして作成してください'); }
+              msg(''); addBubble('me', '🎤（おと）');
+              const r = await api('/v1/conversations/ask', { method:'POST', body: JSON.stringify({ child_id: child, audio_base64: b64, tts:{ volume: 1.0, rate: 1.0 } }) });
+              addBubble('ai', r.answer_text);
+              await refreshQuota(child); await refreshHistory(child);
+            }catch(e){
+              if((e.message||'').includes('429')){ msg('今日はここまでです。あした またためしてみてね。'); }
+              else { msg('録音エラー: '+e.message); }
+            }
+          };
+          mediaRecorder.start();
+          $('#rec').textContent = '■ とめる';
+          $('#recStat').textContent = '録音中…';
+        }catch(err){ alert('マイクの許可が必要です'); }
+      }
+      function stopRec(){ if(mediaRecorder && mediaRecorder.state!=='inactive'){ mediaRecorder.stop(); } if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); } $('#rec').textContent='🎤 録音'; $('#recStat').textContent='（テキストでもOK）'; }
+
+
       $('#ask').addEventListener('click', async ()=>{
         const child = localStorage.getItem('child_id'); if(!child){ return alert('先にリセットして作成してください'); }
         const text = ($('#q').value||'').trim() || 'なぜ空は青いの？';
@@ -151,6 +190,7 @@ export function createApp() {
 
       $$('.chip').forEach(el=> el.addEventListener('click', ()=>{ $('#q').value = el.getAttribute('data-q') || ''; }));
       $('#reset').addEventListener('click', ()=>{ localStorage.removeItem('child_id'); location.reload(); });
+      $('#rec').addEventListener('click', ()=>{ if($('#rec').textContent.includes('録音')) startRec(); else stopRec(); });
 
       // auto init
       init();
