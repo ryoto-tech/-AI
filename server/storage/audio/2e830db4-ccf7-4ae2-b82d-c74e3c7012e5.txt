@@ -1,0 +1,1 @@
+TTS_PLACEHOLDER volume=1 rate=1: 空には光があたって、青い色がいちばん見えやすいからだよ。

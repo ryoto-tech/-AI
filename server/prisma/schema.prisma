@@ -1,0 +1,58 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  user_id             String   @id @default(uuid())
+  email               String   @unique
+  subscription_plan   String   @default("free")
+  subscription_status String   @default("active")
+  created_at          DateTime @default(now())
+  children            Child[]
+}
+
+model Child {
+  child_id    String   @id @default(uuid())
+  user_id     String?
+  name        String
+  age         Int
+  settings    Json?
+  created_at  DateTime @default(now())
+  user        User?    @relation(fields: [user_id], references: [user_id])
+  conversations Conversation[]
+  usageRecords    UsageTracking[]
+}
+
+model Conversation {
+  conversation_id  String   @id @default(uuid())
+  child_id         String
+  question_text    String
+  answer_text      String
+  audio_input_url  String?
+  audio_output_url String?
+  category         String
+  timestamp        DateTime @default(now())
+  session_id       String?
+  child            Child    @relation(fields: [child_id], references: [child_id])
+  @@index([child_id, timestamp])
+}
+
+model UsageTracking {
+  tracking_id    String   @id @default(uuid())
+  child_id       String
+  date           String   // YYYY-MM-DD
+  question_count Int      @default(0)
+  total_time     Int      @default(0)
+  plan_type      String   @default("free")
+  child          Child    @relation(fields: [child_id], references: [child_id])
+  @@unique([child_id, date])
+}
