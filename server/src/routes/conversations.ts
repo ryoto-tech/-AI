@@ -1,3 +1,4 @@
+// TODO(MVP->Phase2): Wire real STT(OpenAI Whisper or GCP), OpenAI chat, and TTS(GCP TTS).
 import { Router } from 'express';
 import { z } from 'zod';
 import { checkAndInc } from './usage';
