@@ -60,7 +60,7 @@ export function createApp() {
       .btn{background:var(--accent); color:#fff; border:none; border-radius:999px; padding:12px 18px; font-size:18px; cursor:pointer}
       .btn:disabled{opacity:.5; cursor:not-allowed}
       .text{flex:1; padding:12px 14px; font-size:18px; border:1px solid var(--border); border-radius:12px; background:transparent; color:var(--fg)}
-      .chip{border:1px solid var(--border); border-radius:16px; padding:8px 12px; cursor:pointer; background:transparent; color:var(--fg)}
+      .chip{border:1px solid var(--border); border-radius:18px; padding:10px 14px; cursor:pointer; background:transparent; color:var(--fg)}
       .chip:hover{background:rgba(0,0,0,.03)}
       [data-theme="dark"] .chip:hover{ background:rgba(255,255,255,.06) }
       .bubbles{display:flex; flex-direction:column; gap:8px; margin-top:8px}
@@ -77,7 +77,10 @@ export function createApp() {
   <body>
     <div class="row" style="justify-content:space-between; align-items:center">
       <h1 style="margin:0">なぜなぜAI デモ</h1>
-      <button id="theme" class="chip" title="テーマ切り替え">🌓 テーマ</button>
+      <div class="row" style="gap:6px">
+        <button id="privacy" class="chip" title="注意事項">ℹ️ 注意</button>
+        <button id="theme" class="chip" title="テーマ切り替え">🌓 テーマ</button>
+      </div>
     </div>
     <p class="muted">これはプロトタイプのデモです。個人情報は入力しないでください。1日に質問できる回数は3回までです。</p>
 
@@ -100,7 +103,7 @@ export function createApp() {
         <span class="chip" data-q="どうして夜は暗いの？">どうして夜は暗いの？</span>
         <span class="chip" data-q="雨はどうして降るの？">雨はどうして降るの？</span>
       </div>
-      <div id="msg" class="muted" style="margin-top:6px"></div>
+      <div id="msg" class="muted" style="margin-top:6px">きいてみたい ことを えらんで きいてみてね。</div>
       <div id="bubbles" class="bubbles"></div>
     </div>
 
@@ -155,8 +158,23 @@ export function createApp() {
         }
       }
 
+      // small privacy modal
+      (function(){
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.4);z-index:10';
+        modal.innerHTML = '<div style="background:var(--card); color:var(--fg); border:1px solid var(--border); padding:16px; border-radius:12px; max-width:560px;">\
+          <h3 style="margin-top:0">注意・プライバシー</h3>\
+          <p class="muted">これはプロトタイプのデモです。個人情報（氏名、住所、学校名など）は入力しないでください。質問は1日に3回までです。録音する場合は周囲の音・会話にもご注意ください。</p>\
+          <div style="text-align:right"><button id="closePrivacy" class="chip">とじる</button></div>\
+        </div>';
+        document.body.appendChild(modal);
+        document.getElementById('privacy').addEventListener('click', ()=>{ modal.style.display='flex'; });
+        modal.addEventListener('click', (e)=>{ if(e.target===modal) modal.style.display='none'; });
+        modal.querySelector('#closePrivacy').addEventListener('click', ()=>{ modal.style.display='none'; });
+      })();
+
       // simple WebAudio recorder (base64 wav) for demo
-      let mediaStream, mediaRecorder, chunks=[];
+      let mediaStream, mediaRecorder, chunks=[], waveT=null;
       async function startRec(){
         if(!navigator.mediaDevices){ alert('録音に対応していないブラウザです'); return; }
         try{
@@ -166,6 +184,7 @@ export function createApp() {
           mediaRecorder.ondataavailable = (e)=>{ if(e.data.size>0) chunks.push(e.data); };
           mediaRecorder.onstop = async ()=>{
             try{
+              if(waveT){ clearInterval(waveT); waveT=null; }
               const blob = new Blob(chunks, { type: 'audio/webm' });
               const buf = await blob.arrayBuffer();
               const b64 = btoa(String.fromCharCode(...new Uint8Array(buf)));
@@ -174,6 +193,7 @@ export function createApp() {
               msg(''); addBubble('me', '🎤（おと）');
               const r = await api('/v1/conversations/ask', { method:'POST', body: JSON.stringify({ child_id: child, audio_base64: b64, tts:{ volume: 1.0, rate: 1.0 } }) });
               addBubble('ai', r.answer_text);
+              if(r.related_question){ const rqBtn=document.createElement('button'); rqBtn.className='chip'; rqBtn.textContent='→ '+r.related_question; rqBtn.addEventListener('click', ()=>{ document.getElementById('q').value=r.related_question; document.getElementById('ask').click(); }); document.getElementById('bubbles').appendChild(rqBtn); }
               await refreshQuota(child); await refreshHistory(child);
             }catch(e){
               if((e.message||'').includes('429')){ msg('今日はここまでです。あした またためしてみてね。'); }
@@ -182,7 +202,8 @@ export function createApp() {
           };
           mediaRecorder.start();
           $('#rec').textContent = '■ とめる';
-          $('#recStat').textContent = '録音中…'; setBusy(true);
+          let t=0; $('#recStat').textContent = '録音中… ▂▃▄▅▆▇█'; setBusy(true);
+          waveT = setInterval(()=>{ const bars=['▂','▃','▄','▅','▆','▇','█']; $('#recStat').textContent='録音中… '+ bars.slice(0, (t++%bars.length)+1).join(''); }, 150);
         }catch(err){ alert('マイクの許可が必要です'); }
       }
       function stopRec(){ if(mediaRecorder && mediaRecorder.state!=='inactive'){ mediaRecorder.stop(); } if(mediaStream){ mediaStream.getTracks().forEach(t=>t.stop()); } $('#rec').textContent='🎤 録音'; $('#recStat').textContent='（テキストでもOK）'; setBusy(false); }
@@ -195,6 +216,7 @@ export function createApp() {
         try{
           const r = await api('/v1/conversations/ask', { method:'POST', body: JSON.stringify({ child_id: child, text, tts:{ volume: 1.0, rate: 1.0 } }) });
           addBubble('ai', r.answer_text);
+          if(r.related_question){ const rq=document.createElement('button'); rq.className='chip'; rq.textContent='→ '+r.related_question; rq.addEventListener('click', ()=>{ document.getElementById('q').value=r.related_question; document.getElementById('ask').click(); }); document.getElementById('bubbles').appendChild(rq); }
           await refreshQuota(child); await refreshHistory(child);
         }catch(e){
           if((e.message||'').includes('429')){ msg('今日はここまでです。あした またためしてみてね。'); $('#ask').disabled=true; $('#rec').disabled=true; }
