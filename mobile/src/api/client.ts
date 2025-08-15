@@ -22,7 +22,7 @@ export async function ensureChild(): Promise<string> {
     const cached = await AsyncStorage.getItem(KEY);
     if (cached) return cached;
   } catch {}
-  const r = await request('/v1/children', { method: 'POST', body: JSON.stringify({ name: 'こども', age: 5 }) });
+  const r = await request('/v1/children', { method: 'POST', body: JSON.stringify({ name: 'こども', age: 5, settings: await (async()=>{ try { const raw = await AsyncStorage.getItem('tts_settings'); return raw? JSON.parse(raw): {}; } catch { return {}; } })() }) });
   const id = r.child_id as string;
   try { await AsyncStorage.setItem(KEY, id); } catch {}
   return id;
