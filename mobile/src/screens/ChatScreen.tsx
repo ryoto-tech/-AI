@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, Image, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ActivityIndicator, Image, Alert, Platform, ToastAndroid } from 'react-native';
 import { Audio } from 'expo-av';
 import * as FileSystem from 'expo-file-system';
 import { ensureChild, getUsageToday, askConversation } from '../api/client';
@@ -19,10 +19,19 @@ export default function ChatScreen() {
         setChildId(id);
         await refreshQuota(id);
       } catch (e: any) {
-        Alert.alert('初期化エラー', e.message);
+        toast('初期化エラー', e.message);
       }
     })();
   }, []);
+
+  function toast(title: string, message?: string) {
+    const msg = message ? `${title}: ${message}` : title;
+    if (Platform.OS === 'android') {
+      ToastAndroid.show(msg, ToastAndroid.SHORT);
+    } else {
+      Alert.alert(title, message);
+    }
+  }
 
   async function refreshQuota(id = childId) {
     if (!id) return;
@@ -33,14 +42,14 @@ export default function ChatScreen() {
   async function startRecording() {
     try {
       const perm = await Audio.requestPermissionsAsync();
-      if (perm.status !== 'granted') return Alert.alert('マイク許可が必要です');
+      if (perm.status !== 'granted') { toast('マイク許可が必要です'); return; }
       await Audio.setAudioModeAsync({ allowsRecordingIOS: true, playsInSilentModeIOS: true });
       const rec = new Audio.Recording();
       await rec.prepareToRecordAsync(Audio.RecordingOptionsPresets.HIGH_QUALITY);
       await rec.startAsync();
       setRecording(rec);
     } catch (e: any) {
-      Alert.alert('録音エラー', e.message);
+      toast('録音エラー', e.message);
     }
   }
 
@@ -64,7 +73,7 @@ export default function ChatScreen() {
         await sound.playAsync();
       }
     } catch (e: any) {
-      Alert.alert('送信エラー', e.message);
+      toast('送信エラー', e.message);
     } finally {
       setLoading(false);
     }
@@ -80,7 +89,7 @@ export default function ChatScreen() {
   return (
     <View style={{ flex: 1, padding: 24, justifyContent: 'space-between' }}>
       <View style={{ alignItems: 'center', marginTop: 32 }}>
-        <Image source={{ uri: 'https://dummyimage.com/200x200/ffd1a1/333&text=%E3%81%8F%E3%81%BE' }} style={{ width: 200, height: 200, borderRadius: 100, opacity: recording || loading ? 0.7 : 1 }} />
+        <Image source={{ uri: (recording || loading) ? 'https://dummyimage.com/200x200/ffd1a1/333&text=%F0%9F%95%8A%EF%B8%8F%E3%81%8F%E3%81%BE' : 'https://dummyimage.com/200x200/ffd1a1/333&text=%E3%81%8F%E3%81%BE' }} style={{ width: 200, height: 200, borderRadius: 100, opacity: recording || loading ? 0.7 : 1 }} />
         <Text style={{ marginTop: 16, fontSize: 18 }}>{answer || 'こんにちは！マイクをおしてね。'}</Text>
       </View>
 
