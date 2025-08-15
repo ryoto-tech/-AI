@@ -47,14 +47,10 @@ export async function generateAnswerForChild(inputText: string, age: number = 4,
     if (!resp.ok) throw new Error(`OpenAI API error: ${resp.status}`);
     const data = await resp.json();
     const content: string = data.choices?.[0]?.message?.content || '';
-    // Very simple parse: split lines
-    const lines = content.split(/\n+/).map((l: string) => l.trim()).filter(Boolean);
-    const answer = lines.find(l => !l.startsWith('-')) || lines[0] || '';
-    const categoryLine = lines.find(l => /カテゴリ/.test(l)) || '';
-    const relatedLine = lines.find(l => /関連質問/.test(l)) || '';
-    const category = (categoryLine.match(/\[(.*?)\]/)?.[1] as any) || classify(inputText);
-    const related_question = relatedLine.replace(/^[-\s]*関連質問[:：]?\s*/, '') || 'ほかの色はどう見えるのかも知りたい？';
-    return { answer_text: answer, category, related_question };
+    // Robust parse and safety post-process
+    const { parseChildAIResponse, ensureChildSafeAnswer } = await import('../utils/ai_parse');
+    const parsed = parseChildAIResponse(content, inputText);
+    return { answer_text: ensureChildSafeAnswer(parsed.answer_text), category: parsed.category, related_question: parsed.related_question };
   }
 
   throw new Error(`Unknown AI provider: ${provider}`);
