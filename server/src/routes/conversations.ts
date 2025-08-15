@@ -38,7 +38,7 @@ router.post('/ask', async (req, res) => {
   const category = ai.category || classify(userText);
 
   // TTS synth
-  const tts_audio_url = await synthesizeToUrl(ai.answer_text); // TODO: rate/volume を将来反映
+  const tts_audio_url = await synthesizeToUrl(ai.answer_text, { volume: tts?.volume, rate: tts?.rate }); // 将来の実装に備え、モックでもメタを書き出し
 
   // persist DB
   await prisma.conversation.create({ data: {

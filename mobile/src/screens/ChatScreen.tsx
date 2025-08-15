@@ -93,7 +93,7 @@ export default function ChatScreen() {
       if (!uri) throw new Error('録音に失敗しました');
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
       setLastAudioBase64(base64);
-      const res = await askConversation({ child_id: childId, audio_base64: base64 });
+      const res = await askConversation({ child_id: childId, audio_base64: base64, tts: { volume: ttsVolume, rate: ttsRate } });
       setAnswer(res.answer_text);
       setTtsUrl(res.tts_audio_url);
       await refreshQuota();
@@ -153,7 +153,7 @@ export default function ChatScreen() {
           <TouchableOpacity onPress={async () => {
             try {
               setLoading(true);
-              const res = await askConversation({ child_id: childId, audio_base64: lastAudioBase64 });
+              const res = await askConversation({ child_id: childId, audio_base64: lastAudioBase64, tts: { volume: ttsVolume, rate: ttsRate } });
               setAnswer(res.answer_text);
               setTtsUrl(res.tts_audio_url);
               await refreshQuota();

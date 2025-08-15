@@ -32,6 +32,6 @@ export async function getUsageToday(child_id: string) {
   return request(`/v1/usage/today?child_id=${encodeURIComponent(child_id)}`, { method: 'GET' });
 }
 
-export async function askConversation(body: { child_id: string; text?: string; audio_base64?: string }) {
+export async function askConversation(body: { child_id: string; text?: string; audio_base64?: string; tts?: { volume?: number; rate?: number } }) {
   return request('/v1/conversations/ask', { method: 'POST', body: JSON.stringify(body) });
 }
