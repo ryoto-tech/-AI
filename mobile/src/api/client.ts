@@ -4,15 +4,28 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 const API_BASE = (Constants.expoConfig?.extra?.API_BASE_URL || Constants.manifest?.extra?.API_BASE_URL) as string;
 const AUTH_TOKEN = (Constants.expoConfig?.extra?.AUTH_TOKEN || Constants.manifest?.extra?.AUTH_TOKEN) as string;
 
+function sleep(ms: number) { return new Promise(res => setTimeout(res, ms)); }
+
 async function request(path: string, options: RequestInit = {}) {
   const headers: any = { 'Content-Type': 'application/json', ...(options.headers || {}) };
   if (AUTH_TOKEN) headers['Authorization'] = `Bearer ${AUTH_TOKEN}`;
-  const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`HTTP ${res.status}: ${text}`);
+  // 簡易指数バックオフ: 3 回まで
+  let lastErr: any;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`HTTP ${res.status}: ${text}`);
+      }
+      return res.json();
+    } catch (e) {
+      lastErr = e;
+      // 429/503 等は少し待って再試行
+      await sleep(300 * Math.pow(2, attempt));
+    }
   }
-  return res.json();
+  throw lastErr;
 }
 
 export async function ensureChild(): Promise<string> {

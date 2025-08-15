@@ -129,14 +129,14 @@ export default function ChatScreen() {
     <View style={{ flex: 1, padding: 24, justifyContent: 'space-between' }}>
       <View style={{ alignItems: 'center', marginTop: 32 }}>
         <Animated.Image source={{ uri: (recording || loading) ? 'https://dummyimage.com/200x200/ffd1a1/333&text=%F0%9F%95%8A%EF%B8%8F%E3%81%8F%E3%81%BE' : 'https://dummyimage.com/200x200/ffd1a1/333&text=%E3%81%8F%E3%81%BE' }} style={{ width: 200, height: 200, borderRadius: 100, opacity: recording || loading ? 0.7 : 1, transform: [{ scale: (recording || loading) ? pulse : 1 }] }} />
-        <Text style={{ marginTop: 16, fontSize: 18 }}>{answer || 'こんにちは！マイクをおしてね。'}</Text>
+        <Text style={{ marginTop: 16, fontSize: 18 }}>{answer || 'こんにちは！　マイクをおして、きいてみてね。'}</Text>
         <TouchableOpacity onPress={() => setShowSettings(true)} style={{ marginTop: 8, paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, backgroundColor: '#eee' }}>
           <Text>⚙️ せってい</Text>
         </TouchableOpacity>
       </View>
 
       <View style={{ alignItems: 'center', marginBottom: 40 }}>
-        <Text style={{ marginBottom: 12 }}>きょうの のこり: {remaining} かい</Text>
+        <Text style={{ marginBottom: 12 }}>きょう きける かず: {remaining} かい</Text>
         {loading ? (
           <ActivityIndicator size="large" />
         ) : (
@@ -170,7 +170,7 @@ export default function ChatScreen() {
               setLoading(false);
             }
           }} style={{ marginTop: 12 }}>
-            <Text style={{ color: '#555' }}>もういちど ▶︎</Text>
+            <Text style={{ color: '#555' }}>もういちど きく ▶︎</Text>
           </TouchableOpacity>
         ) : null}
       </View>
